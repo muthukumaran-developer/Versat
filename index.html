@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Versant Passage Reconstruction Simulator</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body class="fullscreen-app">
+
+  <!-- Top Fixed Application Header with Integrated Timer -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-wrapper">
+        <div class="brand-icon">V</div>
+        <div class="brand-titles">
+          <h1>Versant Simulator</h1>
+          <div class="brand-subtitle">Passage Reconstruction</div>
+        </div>
+      </div>
+
+      <!-- Round Robin Navigation Indicator -->
+      <div class="round-robin-badge" title="Continuous Round Robin Navigation">
+        <span class="dot"></span>
+        <span>Passage <strong id="currentPassageNum">1</strong> of <span id="totalPassagesNum">50</span></span>
+      </div>
+
+      <!-- Quick Jump Selector -->
+      <div class="passage-jump">
+        <label for="passageSelect">Jump:</label>
+        <select id="passageSelect" class="passage-select" aria-label="Select Passage"></select>
+      </div>
+    </div>
+
+    <!-- Center/Right Phase & Integrated Timer Widget (ALWAYS VISIBLE) -->
+    <div class="header-right">
+      <!-- Phase Indicator Pill -->
+      <div class="phase-indicator-box">
+        <span id="phasePill" class="phase-pill reading">READING (30s)</span>
+        <span id="phaseInstruction" class="phase-subtitle">Read and memorize the passage.</span>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button id="soundToggleBtn" class="header-icon-btn" title="Toggle Sound Notifications">
+        <span id="soundIcon">🔔</span>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button id="fullscreenBtn" class="header-icon-btn" title="Toggle Fullscreen Mode">
+        <span id="fullscreenIcon">⛶</span>
+      </button>
+
+      <!-- Circular Top-Right Timer Box (Always Anchored) -->
+      <div id="timerBanner" class="timer-display-dock reading">
+        <div class="timer-ring-wrapper">
+          <svg class="timer-ring-svg" viewBox="0 0 64 64">
+            <circle class="timer-ring-bg" cx="32" cy="32" r="28"></circle>
+            <circle id="timerRing" class="timer-ring-progress" cx="32" cy="32" r="28"></circle>
+          </svg>
+          <div id="timerDigits" class="timer-digits">00:30</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Viewport Area (100% Screen Height, Zero Body Scroll) -->
+  <main class="app-viewport">
+    
+    <!-- Hidden legacy element for app.js state compatibility -->
+    <span id="phaseTitle" style="display: none;"></span>
+
+    <!-- ============================================== -->
+    <!-- VIEW 1: Reading Phase (30 seconds)            -->
+    <!-- ============================================== -->
+    <section id="readingView" class="view-panel reading-panel">
+      <div class="panel-inner card">
+        <div class="panel-header">
+          <span class="section-eyebrow">Original Passage &bull; 30s Memorization</span>
+          <span class="stats-pill">Length: <strong id="readingWordCount">0 words</strong></span>
+        </div>
+
+        <div class="reading-text-wrapper">
+          <p id="readingPassageText" class="passage-display">Loading passage...</p>
+        </div>
+
+        <div class="panel-footer">
+          <span class="guidance-text">💡 Memorize the main concepts and structure. The text will disappear when the timer hits zero.</span>
+          <button id="startWritingEarlyBtn" class="btn btn-primary" title="Finished reading? Start writing immediately">
+            <span>I'm Ready to Write</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VIEW 2: Typing Phase (90 seconds)             -->
+    <!-- ============================================== -->
+    <section id="typingView" class="view-panel typing-panel">
+      <div class="panel-inner card">
+        <div class="panel-header">
+          <span class="section-eyebrow">Reconstruction Phase &bull; 90s Writing Time</span>
+          <div class="typing-stats">
+            <span>Words: <strong id="typingWordCount">0</strong></span>
+            <span>Characters: <strong id="typingCharCount">0</strong></span>
+          </div>
+        </div>
+
+        <div class="typing-input-wrapper">
+          <textarea 
+            id="reconstructionInput" 
+            class="reconstruction-textarea" 
+            placeholder="Type the passage in your own words here. Focus on retaining core ideas, using proper grammar, and applying clear organizational structure..."
+            spellcheck="false"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+          ></textarea>
+        </div>
+
+        <div class="panel-footer">
+          <span class="guidance-text">Press <code>Ctrl + Enter</code> to submit anytime before 90 seconds expire.</span>
+          <button id="submitTypingBtn" class="btn btn-accent">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <span>Submit &amp; Score</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VIEW 3: Review & Scoring Phase (Versant 4-Skills) -->
+    <!-- ============================================== -->
+    <section id="reviewView" class="view-panel review-panel">
+      <div class="panel-inner review-card">
+
+        <!-- Compact Top Score Bar (All 4 Skills in One Clean Line) -->
+        <div class="score-strip">
+          <div class="score-strip-total">
+            <div class="score-number-display">
+              <span id="scoreOverall" class="score-main">0</span>
+              <span class="score-max">/ 100</span>
+            </div>
+            <div class="score-meta">
+              <span id="scoreBadgeText" class="score-badge-pill">Proficient</span>
+              <span id="scoreVersantScale" class="score-scale-versant">Versant: 58/80 | CEFR: B2</span>
+            </div>
+          </div>
+
+          <!-- 4 Skills Quick Bars -->
+          <div class="skills-strip-grid">
+            <!-- 1. Grammar -->
+            <div class="mini-skill-card">
+              <div class="mini-skill-head">
+                <span class="mini-skill-title">1. Grammar</span>
+                <span id="grammarScore" class="mini-skill-val">22/25</span>
+              </div>
+              <div class="skill-bar-track">
+                <div id="grammarBar" class="skill-bar-fill" style="width: 88%;"></div>
+              </div>
+              <p id="grammarFeedback" class="mini-skill-tip">Strong syntax and sentence boundaries.</p>
+            </div>
+
+            <!-- 2. Vocabulary -->
+            <div class="mini-skill-card">
+              <div class="mini-skill-head">
+                <span class="mini-skill-title">2. Vocabulary</span>
+                <span id="vocabScore" class="mini-skill-val">20/25</span>
+              </div>
+              <div class="skill-bar-track">
+                <div id="vocabBar" class="skill-bar-fill" style="width: 80%;"></div>
+              </div>
+              <p id="vocabFeedback" class="mini-skill-tip">Good lexical range and diversity.</p>
+            </div>
+
+            <!-- 3. Organization -->
+            <div class="mini-skill-card">
+              <div class="mini-skill-head">
+                <span class="mini-skill-title">3. Organization</span>
+                <span id="orgScore" class="mini-skill-val">19/25</span>
+              </div>
+              <div class="skill-bar-track">
+                <div id="orgBar" class="skill-bar-fill" style="width: 76%;"></div>
+              </div>
+              <p id="orgFeedback" class="mini-skill-tip">Cohesive flow with clear transitions.</p>
+            </div>
+
+            <!-- 4. Content -->
+            <div class="mini-skill-card">
+              <div class="mini-skill-head">
+                <span class="mini-skill-title">4. Content</span>
+                <span id="contentScore" class="mini-skill-val">23/25</span>
+              </div>
+              <div class="skill-bar-track">
+                <div id="contentBar" class="skill-bar-fill" style="width: 92%;"></div>
+              </div>
+              <p id="contentFeedback" class="mini-skill-tip">High retention of core concepts.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-Side ("Next by next") Comparison Area (Flexible, Internal Scroll only if needed) -->
+        <div class="comparison-grid">
+          <!-- Left Column: Original -->
+          <div class="comparison-column original-col">
+            <div class="comparison-col-header">
+              <span class="col-title original">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Original Passage
+              </span>
+              <span id="originalWordCount" class="col-meta">0 words</span>
+            </div>
+            <div id="originalCompareText" class="comparison-scrollbox original-box"></div>
+          </div>
+
+          <!-- Right Column: Typed -->
+          <div class="comparison-column typed-col">
+            <div class="comparison-col-header">
+              <span class="col-title typed">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Your Typed Reconstruction
+              </span>
+              <div class="col-meta">
+                <span id="typedWordCount">0 words</span> &bull; <span id="wpmStat">0 WPM</span>
+              </div>
+            </div>
+            <div id="typedCompareText" class="comparison-scrollbox typed-box"></div>
+          </div>
+        </div>
+
+        <!-- Copilot Action Toolbar Docked at Bottom of Card -->
+        <div class="bottom-action-bar">
+          <!-- Copilot Prompt Snippet Preview (Truncated/Compact) -->
+          <div class="prompt-compact-row">
+            <div class="prompt-tag">Copilot Format:</div>
+            <code id="copilotPromptSnippet" class="prompt-code-inline">original : "..." ,  typed content : "..."</code>
+          </div>
+
+          <!-- Buttons Row -->
+          <div class="action-buttons-strip">
+            <div class="btn-group-left">
+              <!-- Exact Format Copy Button -->
+              <button id="copyPromptBtn" class="btn btn-copy" title="Copy format: original : '...' , typed content : '...'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy for Copilot</span>
+              </button>
+
+              <!-- Detailed Prompt Copy Button -->
+              <button id="copyDetailedPromptBtn" class="btn btn-secondary" title="Copy with Versant Examiner Instructions for Deep Feedback">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Copy + Examiner Prompt</span>
+              </button>
+            </div>
+
+            <div class="btn-group-right">
+              <!-- Try Again Button -->
+              <button id="retryPassageBtn" class="btn btn-secondary" title="Retake this passage">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                <span>Try Again</span>
+              </button>
+
+              <!-- Previous Round Robin Button -->
+              <button id="prevPassageBtn" class="btn btn-secondary" title="Previous passage in loop">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <span>Prev</span>
+              </button>
+
+              <!-- Next Round Robin Button -->
+              <button id="nextPassageBtn" class="btn btn-primary" title="Next passage (Loops in round-robin)">
+                <span>Next Passage &rarr;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Popup -->
+  <div id="toast" class="toast" role="status" aria-live="polite">
+    <svg class="toast-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <span id="toastMessage">Copied to clipboard!</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
